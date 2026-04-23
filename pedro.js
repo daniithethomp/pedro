@@ -7,6 +7,7 @@ if (pedroImage) {
 	let idleResetTimer = null;
 	let didChangeDuringHover = false;
 	let isHovering = false;
+	let activePointerId = null;
 	let animationFrame = null;
 	let particles = [];
 	let lastPointer = null;
@@ -203,22 +204,30 @@ if (pedroImage) {
 		}, randomDelay);
 	}
 
-	pedroImage.addEventListener("mouseenter", (event) => {
+	function startInteraction(event, isTouchLike) {
 		isHovering = true;
-		pedroImage.style.cursor = brushCursorUrl;
+
+		if (!isTouchLike) {
+			pedroImage.style.cursor = brushCursorUrl;
+		}
+
 		updatePointer(event);
 		isPointerMoving = false;
 		startHairAnimation();
 		scheduleChange();
-	});
+	}
 
-	pedroImage.addEventListener("mousemove", (event) => {
+	function moveInteraction(event) {
+		if (!isHovering) {
+			return;
+		}
+
 		updatePointer(event);
 		isPointerMoving = true;
 		scheduleIdleReset();
-	});
+	}
 
-	pedroImage.addEventListener("mouseleave", () => {
+	function endInteraction() {
 		isHovering = false;
 		clearTimeout(hoverTimer);
 		clearTimeout(idleResetTimer);
@@ -229,5 +238,81 @@ if (pedroImage) {
 			pedroImage.src = originalSrc;
 			didChangeDuringHover = false;
 		}
+	}
+
+	pedroImage.addEventListener("pointerenter", (event) => {
+		if (event.pointerType !== "mouse") {
+			return;
+		}
+
+		startInteraction(event, false);
+	});
+
+	pedroImage.addEventListener("pointermove", (event) => {
+		if (event.pointerType === "mouse") {
+			moveInteraction(event);
+			return;
+		}
+
+		if (event.pointerId !== activePointerId) {
+			return;
+		}
+
+		event.preventDefault();
+		moveInteraction(event);
+	});
+
+	pedroImage.addEventListener("pointerleave", (event) => {
+		if (event.pointerType !== "mouse") {
+			return;
+		}
+
+		endInteraction();
+	});
+
+	pedroImage.addEventListener("pointerdown", (event) => {
+		if (event.pointerType === "mouse") {
+			return;
+		}
+
+		activePointerId = event.pointerId;
+		pedroImage.setPointerCapture(event.pointerId);
+		event.preventDefault();
+		startInteraction(event, true);
+	});
+
+	pedroImage.addEventListener("pointerup", (event) => {
+		if (event.pointerId !== activePointerId) {
+			return;
+		}
+
+		if (pedroImage.hasPointerCapture(event.pointerId)) {
+			pedroImage.releasePointerCapture(event.pointerId);
+		}
+
+		activePointerId = null;
+		endInteraction();
+	});
+
+	pedroImage.addEventListener("pointercancel", (event) => {
+		if (event.pointerId !== activePointerId) {
+			return;
+		}
+
+		if (pedroImage.hasPointerCapture(event.pointerId)) {
+			pedroImage.releasePointerCapture(event.pointerId);
+		}
+
+		activePointerId = null;
+		endInteraction();
+	});
+
+	pedroImage.addEventListener("lostpointercapture", (event) => {
+		if (event.pointerId !== activePointerId) {
+			return;
+		}
+
+		activePointerId = null;
+		endInteraction();
 	});
 }
